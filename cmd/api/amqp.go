@@ -3,19 +3,25 @@ package main
 import amqp "github.com/rabbitmq/amqp091-go"
 
 type rabbitMQClient struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
+	ampqpUrl string
+	conn     *amqp.Connection
+	channel  *amqp.Channel
 }
 
 func newRabbitMQClient() (*rabbitMQClient, error) {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	rabbitMQUrl, err := getRequiredStringEnv("AMQP_URL")
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := amqp.Dial(*rabbitMQUrl)
 	if err != nil {
 		return nil, err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-
+		return nil, err
 	}
 
 	err = ch.ExchangeDeclare(
@@ -55,8 +61,9 @@ func newRabbitMQClient() (*rabbitMQClient, error) {
 	}
 
 	return &rabbitMQClient{
-		conn:    conn,
-		channel: ch,
+		ampqpUrl: *rabbitMQUrl,
+		conn:     conn,
+		channel:  ch,
 	}, nil
 
 }

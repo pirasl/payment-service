@@ -11,9 +11,22 @@ import (
 	"time"
 )
 
+type jwtConfig struct {
+	secret string
+}
+
 func (s *service) serve() error {
+	var addr string
+	env := getOptionalStringEnv("APP_ENV", "development")
+	if env == "development" {
+		addr = fmt.Sprintf("localhost:%d", s.config.servicePort)
+
+	} else {
+		addr = fmt.Sprintf(":%d", s.config.servicePort)
+	}
+
 	server := &http.Server{
-		Addr:         fmt.Sprintf("localhost:%d", 8081),
+		Addr:         addr,
 		Handler:      s.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
@@ -21,7 +34,7 @@ func (s *service) serve() error {
 	}
 
 	shutdownError := make(chan error)
-	s.workerPool = newWorkerPool(5)
+
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -39,14 +52,14 @@ func (s *service) serve() error {
 
 		s.logger.Info("completing background tasks", "addr", server.Addr)
 
-		s.wg.Wait()
 		s.logger.Info("closing RabbitMQ connection")
 		s.rabbitmqClient.channel.Close()
 		s.rabbitmqClient.conn.Close()
 
 		s.logger.Info("closing workerpool")
-		defer s.workerPool.Stop()
+		s.workerPool.Shutdown()
 
+		s.wg.Wait()
 		shutdownError <- nil
 	}()
 

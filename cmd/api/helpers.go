@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -59,4 +62,83 @@ func (s *service) readJSON(c *gin.Context, dst any) error {
 	}
 
 	return nil
+}
+
+// getRequiredStringEnv retrieves a required environment variable as a string.
+// It will log a fatal error and exit if the variable is not set.
+func getRequiredStringEnv(key string) (*string, error) {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return nil, fmt.Errorf("fatal Error: Required environment variable '%s' not set", key)
+	}
+	return &value, nil
+}
+
+// getOptionalStringEnv retrieves an optional environment variable as a string,
+// returning a fallback value if the variable is not set.
+func getOptionalStringEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+// getRequiredIntEnv retrieves a required environment variable as an integer.
+// It will log a fatal error and exit if the variable is not set or is not a valid integer.
+func getRequiredIntEnv(key string) (*int, error) {
+	value, err := getRequiredStringEnv(key)
+	if err != nil {
+		return nil, err
+	}
+
+	intValue, err := strconv.Atoi(*value)
+	if err != nil {
+		return nil, fmt.Errorf("fatal Error: Environment variable '%s' is not a valid integer: %v", key, err)
+	}
+	return &intValue, nil
+}
+
+// getOptionalIntEnv retrieves an optional environment variable as an integer,
+// returning a fallback value if the variable is not set or is not a valid integer.
+func getOptionalIntEnv(key string, fallback int) int {
+	value := getOptionalStringEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		log.Printf("Warning: Environment variable '%s' is not a valid integer. Using fallback value %d. Error: %v", key, fallback, err)
+		return fallback
+	}
+	return intValue
+}
+
+// getRequiredBoolEnv retrieves a required environment variable as a boolean.
+// It will log a fatal error and exit if the variable is not set or is not a valid boolean.
+func getRequiredBoolEnv(key string) (*bool, error) {
+	value, err := getRequiredStringEnv(key)
+	if err != nil {
+		return nil, err
+	}
+
+	boolValue, err := strconv.ParseBool(*value)
+	if err != nil {
+		return nil, fmt.Errorf("fatal Error: Environment variable '%s' is not a valid boolean: %w", key, err)
+	}
+	return &boolValue, nil
+}
+
+// getOptionalBoolEnv retrieves an optional environment variable as a boolean,
+// returning a fallback value if the variable is not set or is not a valid boolean.
+func getOptionalBoolEnv(key string, fallback bool) bool {
+	value := getOptionalStringEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		log.Printf("Warning: Environment variable '%s' is not a valid boolean. Using fallback value %t. Error: %v", key, fallback, err)
+		return fallback
+	}
+	return boolValue
 }
